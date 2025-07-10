@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from "react";
+import { StyledRoom } from "@/entities/StyledRoom";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Search, Filter, Image, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+
+import GalleryGrid from "../components/gallery/GalleryGrid";
+import ImageModal from "../components/gallery/ImageModal";
+
+const styleFilters = [
+  { id: "all", name: "All Styles" },
+  { id: "modern", name: "Modern" },
+  { id: "scandinavian", name: "Scandinavian" },
+  { id: "industrial", name: "Industrial" },
+  { id: "bohemian", name: "Bohemian" },
+  { id: "traditional", name: "Traditional" },
+  { id: "minimalist", name: "Minimalist" },
+  { id: "rustic", name: "Rustic" },
+  { id: "contemporary", name: "Contemporary" },
+  { id: "mediterranean", name: "Mediterranean" },
+  { id: "art_deco", name: "Art Deco" },
+];
+
+export default function GalleryPage() {
+  const [styledRooms, setStyledRooms] = useState([]);
+  const [filteredRooms, setFilteredRooms] = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [selectedRoomIndex, setSelectedRoomIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadStyledRooms();
+  }, []);
+
+  useEffect(() => {
+    filterRooms();
+  }, [styledRooms, searchQuery, selectedFilter]);
+
+  const loadStyledRooms = async () => {
+    setIsLoading(true);
+    try {
+      const rooms = await StyledRoom.list("-created_date");
+      setStyledRooms(rooms);
+    } catch (error) {
+      console.error("Error loading styled rooms:", error);
+    }
+    setIsLoading(false);
+  };
+
+  const filterRooms = () => {
+    let filtered = styledRooms;
+
+    if (selectedFilter !== "all") {
+      filtered = filtered.filter(room => room.style_name === selectedFilter);
+    }
+
+    if (searchQuery) {
+      filtered = filtered.filter(room =>
+        room.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        room.style_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredRooms(filtered);
+  };
+
+  const handleImageClick = (room) => {
+    setSelectedRoom(room);
+    setSelectedRoomIndex(filteredRooms.findIndex(r => r.id === room.id));
+  };
+
+  const handleCloseModal = () => {
+    setSelectedRoom(null);
+  };
+
+  const handlePreviousImage = () => {
+    const prevIndex = selectedRoomIndex > 0 ? selectedRoomIndex - 1 : filteredRooms.length - 1;
+    setSelectedRoomIndex(prevIndex);
+    setSelectedRoom(filteredRooms[prevIndex]);
+  };
+
+  const handleNextImage = () => {
+    const nextIndex = selectedRoomIndex < filteredRooms.length - 1 ? selectedRoomIndex + 1 : 0;
+    setSelectedRoomIndex(nextIndex);
+    setSelectedRoom(filteredRooms[nextIndex]);
+  };
+
+  const handleShare = async (imageUrl, styleName) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${styleName} Styled Room`,
+          text: `Check out this ${styleName} styled room!`,
+          url: imageUrl
+        });
+      } catch (error) {
+        navigator.clipboard.writeText(imageUrl);
+      }
+    } else {
+      navigator.clipboard.writeText(imageUrl);
+    }
+  };
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Image className="w-8 h-8 text-yellow-500" />
+            <h1 className="text-4xl font-bold text-gray-900">Your Gallery</h1>
+          </div>
+          <p className="text-xl text-gray-600">
+            Browse and manage your AI-styled room transformations
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8 space-y-4"
+        >
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                placeholder="Search your styled rooms..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 rounded-xl border-gray-200 focus:border-yellow-400 focus:ring-yellow-400"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600 mr-2">Filter by style:</span>
+            {styleFilters.map((filter) => (
+              <Badge
+                key={filter.id}
+                variant={selectedFilter === filter.id ? "default" : "outline"}
+                className={`cursor-pointer transition-all duration-200 ${
+                  selectedFilter === filter.id 
+                    ? "bg-yellow-500 text-white hover:bg-yellow-600" 
+                    : "hover:bg-gray-100"
+                }`}
+                onClick={() => setSelectedFilter(filter.id)}
+              >
+                {filter.name}
+              </Badge>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array(6).fill(0).map((_, i) => (
+                <div key={i} className="bg-gray-200 rounded-lg h-64 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <GalleryGrid
+              styledRooms={filteredRooms}
+              onImageClick={handleImageClick}
+              onShare={handleShare}
+            />
+          )}
+        </motion.div>
+
+        <ImageModal
+          room={selectedRoom}
+          onClose={handleCloseModal}
+          onPrevious={handlePreviousImage}
+          onNext={handleNextImage}
+          hasNavigation={filteredRooms.length > 1}
+        />
+      </div>
+    </div>
+  );
+}

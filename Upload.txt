@@ -1,0 +1,203 @@
+import React, { useState } from "react";
+import { StyledRoom } from "@/entities/StyledRoom";
+import { UploadFile, GenerateImage } from "@/integrations/Core";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles } from "lucide-react";
+
+import PhotoUpload from "../components/upload/PhotoUpload";
+import StyleSelector from "../components/upload/StyleSelector";
+import GenerationProgress from "../components/upload/GenerationProgress";
+import StyledResult from "../components/upload/StyledResult";
+
+export default function UploadPage() {
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedStyle, setSelectedStyle] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [styledImage, setStyledImage] = useState(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleImageSelect = (file) => {
+    setSelectedImage(file);
+    setStyledImage(null);
+  };
+
+  const handleClearImage = () => {
+    setSelectedImage(null);
+    setStyledImage(null);
+    setSelectedStyle(null);
+  };
+
+  const handleStyleSelect = (styleId) => {
+    setSelectedStyle(styleId);
+  };
+
+  const generateStyledImage = async () => {
+    if (!selectedImage || !selectedStyle) return;
+
+    setIsGenerating(true);
+    setProgress(0);
+
+    try {
+      // Upload original image
+      const { file_url } = await UploadFile({ file: selectedImage });
+      setOriginalImageUrl(file_url);
+      setProgress(30);
+
+      // Generate styled image using AI
+      const styleDescriptions = {
+        modern: "modern minimalist interior design with clean lines, neutral colors, and sleek furniture",
+        scandinavian: "Scandinavian interior design with light woods, white walls, cozy textiles, and natural elements",
+        industrial: "industrial interior design with exposed brick, metal fixtures, concrete floors, and raw materials",
+        bohemian: "bohemian interior design with vibrant colors, eclectic furniture, plants, and artistic elements",
+        traditional: "traditional interior design with classic furniture, rich colors, elegant patterns, and timeless appeal",
+        minimalist: "minimalist interior design with very clean lines, almost no decoration, and maximum simplicity",
+        rustic: "rustic interior design with natural wood, stone elements, cozy textures, and countryside charm",
+        contemporary: "contemporary interior design with current trends, mixed materials, and fresh modern appeal",
+        mediterranean: "Mediterranean interior design with warm colors, natural materials, arched elements, and coastal vibes",
+        art_deco: "Art Deco interior design with geometric patterns, metallic accents, luxury materials, and glamorous elements"
+      };
+
+      const prompt = `Transform this room photo into a ${styleDescriptions[selectedStyle]}. Keep the room's basic structure and layout but completely redesign the furniture, colors, textures, lighting, and decorative elements to match the ${selectedStyle} style. Make it photorealistic and professionally designed.`;
+
+      setProgress(60);
+
+      const result = await GenerateImage({ prompt });
+      setProgress(90);
+
+      setStyledImage(result.url);
+      setProgress(100);
+
+      setTimeout(() => {
+        setIsGenerating(false);
+        setProgress(0);
+      }, 500);
+
+    } catch (error) {
+      console.error("Error generating styled image:", error);
+      setIsGenerating(false);
+      setProgress(0);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!originalImageUrl || !styledImage || !selectedStyle) return;
+
+    setIsSaving(true);
+    try {
+      await StyledRoom.create({
+        original_image_url: originalImageUrl,
+        styled_image_url: styledImage,
+        style_name: selectedStyle,
+        title: `${selectedStyle.charAt(0).toUpperCase() + selectedStyle.slice(1)} Style Room`,
+        room_type: "other"
+      });
+
+      // Reset form
+      setSelectedImage(null);
+      setStyledImage(null);
+      setSelectedStyle(null);
+      setOriginalImageUrl(null);
+    } catch (error) {
+      console.error("Error saving styled room:", error);
+    }
+    setIsSaving(false);
+  };
+
+  const handleTryAgain = () => {
+    setStyledImage(null);
+    setSelectedStyle(null);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share && styledImage) {
+      try {
+        await navigator.share({
+          title: 'My Styled Room',
+          text: `Check out my room styled with ${selectedStyle} design!`,
+          url: styledImage
+        });
+      } catch (error) {
+        // Fallback to clipboard
+        navigator.clipboard.writeText(styledImage);
+      }
+    } else {
+      navigator.clipboard.writeText(styledImage);
+    }
+  };
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Sparkles className="w-8 h-8 text-yellow-500" />
+            <h1 className="text-4xl font-bold text-gray-900">AI Style Studio</h1>
+          </div>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            Transform your space with AI-powered interior design. Upload a photo and watch as artificial intelligence reimagines your room in stunning new styles.
+          </p>
+        </motion.div>
+
+        <div className="space-y-12">
+          <PhotoUpload
+            onImageSelect={handleImageSelect}
+            selectedImage={selectedImage}
+            onClearImage={handleClearImage}
+          />
+
+          <AnimatePresence>
+            {selectedImage && !styledImage && (
+              <StyleSelector
+                selectedStyle={selectedStyle}
+                onStyleSelect={handleStyleSelect}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {selectedImage && selectedStyle && !styledImage && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center"
+              >
+                <button
+                  onClick={generateStyledImage}
+                  disabled={isGenerating}
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white px-12 py-4 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? 'Generating...' : 'Generate Styled Room'}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {styledImage && (
+              <StyledResult
+                originalImage={selectedImage}
+                styledImage={styledImage}
+                styleName={selectedStyle}
+                onSave={handleSave}
+                onTryAgain={handleTryAgain}
+                onShare={handleShare}
+                isSaving={isSaving}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+
+        <GenerationProgress
+          isGenerating={isGenerating}
+          progress={progress}
+        />
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,169 @@
+import React, { useState, useEffect } from "react";
+import { StyledRoom } from "@/entities/StyledRoom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GitCompare, Download, Share2 } from "lucide-react";
+import { motion } from "framer-motion";
+
+import CompareGrid from "../components/compare/CompareGrid";
+import RoomSelector from "../components/compare/RoomSelector";
+
+export default function ComparePage() {
+  const [allRooms, setAllRooms] = useState([]);
+  const [selectedRooms, setSelectedRooms] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadStyledRooms();
+  }, []);
+
+  const loadStyledRooms = async () => {
+    setIsLoading(true);
+    try {
+      const rooms = await StyledRoom.list("-created_date");
+      setAllRooms(rooms);
+    } catch (error) {
+      console.error("Error loading styled rooms:", error);
+    }
+    setIsLoading(false);
+  };
+
+  const handleSelectRoom = (room) => {
+    if (selectedRooms.find(r => r.id === room.id)) {
+      setSelectedRooms(selectedRooms.filter(r => r.id !== room.id));
+    } else if (selectedRooms.length < 4) {
+      setSelectedRooms([...selectedRooms, room]);
+    }
+  };
+
+  const handleRemoveRoom = (roomId) => {
+    setSelectedRooms(selectedRooms.filter(room => room.id !== roomId));
+  };
+
+  const handleDownloadComparison = () => {
+    // For now, just download all selected images
+    selectedRooms.forEach((room, index) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = room.styled_image_url;
+        link.download = `comparison-${room.style_name}-${Date.now()}.jpg`;
+        link.click();
+      }, index * 500);
+    });
+  };
+
+  const handleShareComparison = async () => {
+    const shareText = `Check out my room comparison: ${selectedRooms.map(r => r.style_name).join(', ')} styles`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Room Style Comparison',
+          text: shareText,
+          url: window.location.href
+        });
+      } catch (error) {
+        navigator.clipboard.writeText(shareText);
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+    }
+  };
+
+  const availableRooms = allRooms.filter(room => 
+    !selectedRooms.find(selected => selected.id === room.id)
+  );
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <GitCompare className="w-8 h-8 text-yellow-500" />
+            <h1 className="text-4xl font-bold text-gray-900">Compare Styles</h1>
+          </div>
+          <p className="text-xl text-gray-600">
+            Compare different design styles side by side
+          </p>
+        </motion.div>
+
+        <div className="space-y-8">
+          {selectedRooms.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl">
+                      Comparison ({selectedRooms.length}/4)
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleDownloadComparison}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download All
+                      </Button>
+                      <Button
+                        onClick={handleShareComparison}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CompareGrid
+                    selectedRooms={selectedRooms}
+                    onRemoveRoom={handleRemoveRoom}
+                    onDownloadComparison={handleDownloadComparison}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl">
+                  {selectedRooms.length === 0 ? 'Select Rooms to Compare' : 'Add More Rooms'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array(6).fill(0).map((_, i) => (
+                      <div key={i} className="bg-gray-200 rounded-lg h-40 animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <RoomSelector
+                    availableRooms={availableRooms}
+                    selectedRoomIds={selectedRooms.map(r => r.id)}
+                    onSelectRoom={handleSelectRoom}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
