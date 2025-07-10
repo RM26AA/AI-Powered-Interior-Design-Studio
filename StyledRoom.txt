@@ -1,0 +1,61 @@
+{
+  "name": "StyledRoom",
+  "type": "object",
+  "properties": {
+    "original_image_url": {
+      "type": "string",
+      "description": "URL of the original room photo"
+    },
+    "styled_image_url": {
+      "type": "string",
+      "description": "URL of the AI-styled room photo"
+    },
+    "style_name": {
+      "type": "string",
+      "enum": [
+        "modern",
+        "scandinavian",
+        "industrial",
+        "bohemian",
+        "traditional",
+        "minimalist",
+        "rustic",
+        "contemporary",
+        "mediterranean",
+        "art_deco"
+      ],
+      "description": "The interior design style applied"
+    },
+    "room_type": {
+      "type": "string",
+      "enum": [
+        "living_room",
+        "bedroom",
+        "kitchen",
+        "bathroom",
+        "dining_room",
+        "office",
+        "other"
+      ],
+      "description": "Type of room"
+    },
+    "title": {
+      "type": "string",
+      "description": "Custom title for the styled room"
+    },
+    "is_favorite": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this styled room is marked as favorite"
+    },
+    "processing_time": {
+      "type": "number",
+      "description": "Time taken to generate the styled image in seconds"
+    }
+  },
+  "required": [
+    "original_image_url",
+    "styled_image_url",
+    "style_name"
+  ]
+}
